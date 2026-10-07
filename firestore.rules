@@ -1,0 +1,43 @@
+// Reglas de seguridad para Firestore — versión con cuentas de docente.
+// Cópialas en Firebase Console > Firestore Database > Reglas > Publicar.
+//
+// Qué protegen:
+// - Cualquiera puede LEER (necesario: los estudiantes, que no tienen
+//   cuenta, deben poder abrir una prueba con el código y ver su propio
+//   resultado).
+// - Solo un docente con sesión iniciada puede CREAR o MODIFICAR una
+//   prueba, y únicamente puede crearla a nombre de su propia cuenta
+//   (profesorUid debe coincidir con su usuario autenticado). Esto evita
+//   que alguien cree o edite pruebas suplantando a otro docente.
+// - Cualquiera puede escribir en los intentos de examen ("intento:..."),
+//   porque los estudiantes no inician sesión — así pueden enviar sus
+//   respuestas y el sistema puede anular su intento si abandona la
+//   pantalla.
+//
+// Nota honesta: como los estudiantes no tienen cuenta, las preguntas de
+// una prueba son legibles por cualquiera con el enlace/código, igual que
+// en un formulario de Google compartido por enlace. Es un nivel de
+// protección adecuado para uso académico normal, no para información
+// altamente confidencial.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /storage/{docId} {
+      allow read: if true;
+
+      allow create: if
+        docId.matches('intento:.*') ||
+        (request.auth != null &&
+         (!docId.matches('test:.*') || request.resource.data.profesorUid == request.auth.uid));
+
+      allow update: if
+        docId.matches('intento:.*') ||
+        (request.auth != null &&
+         (!docId.matches('test:.*') || resource.data.profesorUid == request.auth.uid));
+
+      allow delete: if request.auth != null &&
+        (!docId.matches('test:.*') || resource.data.profesorUid == request.auth.uid);
+    }
+  }
+}

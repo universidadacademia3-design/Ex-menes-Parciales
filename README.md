@@ -184,6 +184,23 @@ En **"Site configuration" → "Visitor access"**, confirme que esté en
   un mensaje emergente con su calificación total sobre 100, además de
   verla en la pantalla de resultado con la retroalimentación completa.
 
+### Editar, ver e imprimir una prueba ya creada
+En el panel (y también dentro del informe de cada prueba) cada prueba tiene:
+- **✏️ Editar**: permite cambiar fecha de inicio/fin (por ejemplo, **ampliar
+  el plazo**), el control de tiempo, las instrucciones, el título, y corregir,
+  agregar o quitar preguntas. **El código y el enlace no cambian**, así que
+  no hay que volver a enviarlos a los estudiantes.
+  - Si la prueba ya tiene estudiantes que la presentaron, la pantalla se lo
+    avisa: cambiar fechas, tiempo o instrucciones es seguro; pero si cambia la
+    respuesta correcta o los puntos de una pregunta, las calificaciones ya
+    registradas **no se recalculan**.
+  - Si los puntos no suman 100, la plataforma le pregunta antes de guardar.
+- **👁 Ver / 🖨 Imprimir**: muestra la prueba tal como la verá el estudiante
+  (con el encabezado institucional, espacios para nombre, cédula y fecha, y el
+  valor total de 100 puntos), lista para imprimir en tamaño carta o guardar
+  como PDF. La casilla **"Mostrar respuestas correctas"** genera la versión del
+  docente con la clave; desmárquela para imprimir la versión del estudiante.
+
 ### Panel del docente — solo sus propias asignaturas
 - Solo aparecen las pruebas creadas con su cuenta, agrupadas por
   asignatura, con un filtro para ver solo una a la vez.

@@ -461,6 +461,22 @@ table.report tr:hover td{background:#FBF9F4;}
   body::before{display:none;}
   .card{box-shadow:none; border:1px solid #ccc;}
 }
+.hoja-examen{background:#fff; border:1px solid var(--paper-line); border-radius:var(--radius); padding:34px 40px; max-width:820px; margin:0 auto; color:#000;}
+.hoja-examen .enc{text-align:center; line-height:1.45; margin-bottom:14px;}
+.hoja-examen .enc .u{font-weight:700; font-size:15px;}
+.hoja-examen .enc div{font-size:12.5px;}
+.hoja-examen .datos{display:grid; grid-template-columns:1fr 1fr; gap:10px 24px; margin:14px 0; font-size:13px;}
+.hoja-examen .linea{border-bottom:1px solid #000; display:inline-block; min-width:200px;}
+.hoja-examen .preg{margin:14px 0; page-break-inside:avoid; font-size:13.5px;}
+.hoja-examen .preg .op{margin:3px 0 3px 22px;}
+.hoja-examen .preg .resp-linea{border-bottom:1px solid #000; height:22px; margin:6px 0 0 22px;}
+.hoja-examen .clave{background:#E1EFE5; color:#1F5C39; padding:2px 8px; border-radius:4px; font-weight:700; font-size:12px; margin-left:22px; display:inline-block; margin-top:4px;}
+@page{ size: letter; margin: 14mm; }
+@media print{
+  .hoja-examen{border:none; padding:0; max-width:none;}
+  .shell{padding:0 !important;}
+  .manifest-header{display:none !important;}
+}
 
 .q-editor{border:1px solid var(--paper-line); border-radius:8px; padding:16px; margin-bottom:14px; background:#FBF9F4;}
 .q-editor .row-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
@@ -608,6 +624,30 @@ function normText(s){
 }
 // Compatibilidad: pruebas creadas antes de que existiera el modo de tiempo
 // (solo tenían "duracionMinutos") se tratan como modo "total".
+
+/* ---------- edición de pruebas existentes ---------- */
+function iniciarEdicionPrueba(test){
+  normalizarTiempoTest(test);
+  APP.ctx.editId = test.id;
+  APP.ctx.editOriginal = JSON.parse(JSON.stringify(test));
+  APP.ctx.draft = {
+    asignatura: test.asignatura || '',
+    profesor: test.profesor || '',
+    modulo: test.modulo || '',
+    titulo: test.titulo || '',
+    tipoPrueba: test.tipoPrueba || 'prueba_corta',
+    instrucciones: test.instrucciones || '',
+    fechaInicio: test.fechaInicio || '',
+    fechaFin: test.fechaFin || '',
+    tipoTiempo: test.tipoTiempo || 'ninguno',
+    duracionMinutos: test.duracionMinutos ? String(test.duracionMinutos) : '',
+    minutosPorPregunta: test.minutosPorPregunta ? String(test.minutosPorPregunta) : '',
+    preguntas: JSON.parse(JSON.stringify(test.preguntas || []))
+  };
+  APP.view = 'docenteCrear';
+  render();
+}
+
 function normalizarTiempoTest(test){
   if(test && !test.tipoTiempo){
     test.tipoTiempo = test.duracionMinutos ? 'total' : 'ninguno';
@@ -717,6 +757,7 @@ function render(){
     docenteCrear: ViewDocenteCrear,
     docenteReporte: ViewDocenteReporte,
     docenteReporteAsignatura: ViewDocenteReporteAsignatura,
+    docentePrevia: ViewDocentePrevia,
     estAcceso: ViewEstAcceso,
     estDatos: ViewEstDatos,
     estPrueba: ViewEstPrueba,
@@ -738,6 +779,7 @@ function TopBar(){
     home:'inicio', docenteLogin:'docente / acceso', docenteDashboard:'docente / panel',
     docenteCrear:'docente / nueva prueba', docenteReporte:'docente / informe',
     docenteReporteAsignatura:'docente / informe de asignatura',
+    docentePrevia:'docente / ver e imprimir prueba',
     estAcceso:'estudiante / acceso', estDatos:'estudiante / datos', estPrueba:'estudiante / en curso',
     estResultado:'estudiante / resultado', estBloqueado:'estudiante / bloqueado'
   })[APP.view] || 'inicio';
@@ -1015,7 +1057,7 @@ function ViewDocenteDashboard(){
   `;
   wrap.appendChild(shell);
   setTimeout(async ()=>{
-    document.getElementById('btnNueva').onclick=()=>{ APP.view='docenteCrear'; render(); };
+    document.getElementById('btnNueva').onclick=()=>{ APP.ctx.draft=null; APP.ctx.editId=null; APP.ctx.editOriginal=null; APP.view='docenteCrear'; render(); };
     document.getElementById('btnCerrarSesion').onclick=async ()=>{
       if(window.authAdapter) await window.authAdapter.cerrarSesion();
       APP.docenteAuth = null; APP.ctx = {}; APP.view='home'; render();
@@ -1092,10 +1134,14 @@ function ViewDocenteDashboard(){
           <td>${s.total ? `${s.finalizados} finalizado(s)${s.anulados?` · ${s.anulados} anulado(s)`:''}` : '<span class="muted">sin intentos</span>'}</td>
           <td><b>${promTxt}</b>${s.promedio!=null?' / 100':''}</td>
           <td class="muted">${new Date(t.creado).toLocaleDateString('es-PA')}</td>
-          <td style="text-align:right; white-space:nowrap;">
-            <button class="btn btn-primary btn-sm" data-report="${t.id}">📊 Ver calificaciones</button>
-            <button class="btn btn-ghost btn-sm" data-link="${t.codigo}">Copiar código</button>
-            <button class="btn btn-ghost btn-sm" data-eliminar="${t.id}" style="color:var(--danger); border-color:#E4B3A9;">🗑</button>
+          <td style="text-align:right;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; min-width:200px;">
+              <button class="btn btn-primary btn-sm" data-report="${t.id}">📊 Calificaciones</button>
+              <button class="btn btn-ghost btn-sm" data-editar="${t.id}">✏️ Editar</button>
+              <button class="btn btn-ghost btn-sm" data-previa="${t.id}">👁 Ver / 🖨 Imprimir</button>
+              <button class="btn btn-ghost btn-sm" data-link="${t.codigo}">Copiar enlace</button>
+              <button class="btn btn-ghost btn-sm" data-eliminar="${t.id}" style="color:var(--danger); border-color:#E4B3A9;">🗑</button>
+            </div>
           </td>
         </tr>`;
     }
@@ -1139,8 +1185,17 @@ function ViewDocenteDashboard(){
           const url = location.href.split('#')[0] + '#codigo=' + codigo;
           navigator.clipboard && navigator.clipboard.writeText(url).catch(()=>{});
           b.textContent='¡Copiado!';
-          setTimeout(()=>{ b.textContent='Copiar código'; },1400);
+          setTimeout(()=>{ b.textContent='Copiar enlace'; },1400);
         };
+      });
+      cont.querySelectorAll('[data-editar]').forEach(b=>{
+        b.onclick=()=>{
+          const t = tests.find(x=>x.id===b.getAttribute('data-editar'));
+          if(t) iniciarEdicionPrueba(t);
+        };
+      });
+      cont.querySelectorAll('[data-previa]').forEach(b=>{
+        b.onclick=()=>{ APP.ctx.previaTestId = b.getAttribute('data-previa'); APP.view='docentePrevia'; render(); };
       });
       cont.querySelectorAll('[data-eliminar]').forEach(b=>{
         b.onclick=async ()=>{
@@ -1173,6 +1228,8 @@ function ViewDocenteDashboard(){
 function ViewDocenteCrear(){
   if(!APP.docenteAuth){ APP.view='docenteLogin'; setTimeout(render); return document.createElement('div'); }
   const esCuentaReal = !!APP.docenteAuth.uid;
+  const editando = !!APP.ctx.editId;
+  const original = APP.ctx.editOriginal || null;
   if(!APP.ctx.draft){
     APP.ctx.draft = { asignatura:'', profesor: esCuentaReal ? APP.docenteAuth.nombre : '', modulo:'', titulo:'', tipoPrueba:'prueba_corta', instrucciones:'', fechaInicio:'', fechaFin:'', tipoTiempo:'ninguno', duracionMinutos:'', minutosPorPregunta:'', preguntas:[] };
   }
@@ -1181,8 +1238,9 @@ function ViewDocenteCrear(){
   const shell = document.createElement('div');
   shell.className='shell';
   shell.innerHTML = `
-    <span class="section-label">Nueva prueba</span>
-    <h2 style="font-size:22px; margin-bottom:16px;">Configurar prueba del módulo</h2>
+    <span class="section-label">${editando ? 'Editar prueba' : 'Nueva prueba'}</span>
+    <h2 style="font-size:22px; margin-bottom:16px;">${editando ? 'Editar: '+esc(original ? original.titulo : '') : 'Configurar prueba del módulo'}</h2>
+    ${editando ? `<div class="notice info" style="margin-bottom:16px;">Está editando una prueba ya creada. <b>El código de acceso y el enlace no cambian</b>: los estudiantes siguen usando el mismo. Puede ampliar fechas, cambiar el tiempo, corregir preguntas o agregar/quitar preguntas.<div id="avisoIntentosEdicion"></div></div>` : ''}
 
     <div class="card">
       <div class="grid2">
@@ -1299,7 +1357,10 @@ RESPUESTA: conocimiento de embarque</pre>
 
     <div class="flex-between">
       <span class="muted" id="resumenPuntos"></span>
-      <button class="btn btn-primary" id="btnGenerar">Generar prueba y código de acceso</button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-ghost" id="btnCancelarForm">Cancelar</button>
+        <button class="btn btn-primary" id="btnGenerar">${editando ? 'Guardar cambios' : 'Generar prueba y código de acceso'}</button>
+      </div>
     </div>
   `;
   wrap.appendChild(shell);
@@ -1327,6 +1388,18 @@ RESPUESTA: conocimiento de embarque</pre>
     };
     document.getElementById('fileInput').onchange = handleFile;
     document.getElementById('btnGenerar').onclick = generarPrueba;
+    document.getElementById('btnCancelarForm').onclick = ()=>{
+      if(!confirm('¿Salir sin guardar? Se perderán los cambios que no haya guardado.')) return;
+      APP.ctx.draft = null; APP.ctx.editId = null; APP.ctx.editOriginal = null;
+      APP.view = 'docenteDashboard'; render();
+    };
+    if(editando){
+      const akeys = await stList('intento:'+APP.ctx.editId+':');
+      const av = document.getElementById('avisoIntentosEdicion');
+      if(av && akeys.length){
+        av.innerHTML = `<p style="margin-top:8px;"><b>Atención:</b> esta prueba ya tiene <b>${akeys.length}</b> intento(s) de estudiantes. Cambiar fechas, tiempo o instrucciones es seguro. Pero si modifica la respuesta correcta o los puntos de una pregunta, las calificaciones ya registradas <b>no se recalculan</b>.</p>`;
+      }
+    }
     renderListaPreguntas();
     const asignaturas = await obtenerAsignaturas();
     const dl = document.getElementById('listaAsignaturas');
@@ -1487,11 +1560,15 @@ RESPUESTA: conocimiento de embarque</pre>
       return;
     }
     const preguntasFinal = repartirPuntos(d.preguntas.map(p=>({...p, opciones: p.opciones ? p.opciones.filter(o=>o.trim()) : []})));
+    const sumaPuntos = Math.round(preguntasFinal.reduce((a,p)=>a+(p.puntos||0),0)*100)/100;
+    if(Math.abs(sumaPuntos-100) > 0.01){
+      if(!confirm(`Los puntos de las preguntas suman ${sumaPuntos} y no 100.\n\n¿Desea guardar de todas formas? (Puede cancelar y ajustar los puntos de cada pregunta.)`)) return;
+    }
     const test = {
-      id: uid(10),
+      id: editando ? original.id : uid(10),
       asignatura: d.asignatura.trim(),
-      profesor: esCuentaReal ? APP.docenteAuth.nombre : d.profesor.trim(),
-      profesorUid: esCuentaReal ? APP.docenteAuth.uid : null,
+      profesor: editando ? (original.profesor || d.profesor.trim()) : (esCuentaReal ? APP.docenteAuth.nombre : d.profesor.trim()),
+      profesorUid: editando ? (original.profesorUid || null) : (esCuentaReal ? APP.docenteAuth.uid : null),
       modulo: d.modulo.trim(),
       titulo: d.titulo.trim() || d.modulo.trim(),
       tipoPrueba: d.tipoPrueba,
@@ -1503,25 +1580,29 @@ RESPUESTA: conocimiento de embarque</pre>
       minutosPorPregunta: d.tipoTiempo==='porPregunta' ? parseInt(d.minutosPorPregunta,10) : null,
       preguntas: preguntasFinal,
       valorTotal: 100,
-      codigo: genCodigo(d.asignatura || d.modulo),
-      creado: Date.now(),
+      codigo: editando ? original.codigo : genCodigo(d.asignatura || d.modulo),
+      creado: editando ? original.creado : Date.now(),
+      modificado: editando ? Date.now() : null,
       activo: true,
     };
     const btn = document.getElementById('btnGenerar');
     if(btn){ btn.disabled = true; btn.textContent = 'Guardando…'; }
-    const guardado = await stSet('test:'+test.id, test, esCuentaReal ? { profesorUid: test.profesorUid } : undefined);
+    const guardado = await stSet('test:'+test.id, test, test.profesorUid ? { profesorUid: test.profesorUid } : undefined);
     if(!guardado){
-      if(btn){ btn.disabled = false; btn.textContent = 'Generar prueba y código de acceso'; }
+      if(btn){ btn.disabled = false; btn.textContent = editando ? 'Guardar cambios' : 'Generar prueba y código de acceso'; }
       alert('No se pudo guardar la prueba en el almacenamiento.\n\nEsto suele pasar cuando el archivo se abre directamente con doble clic (file://) en navegadores con políticas de privacidad o empresariales estrictas.\n\nSoluciones:\n1) Abra la app mediante un servidor local (por ejemplo "python -m http.server" y luego http://localhost:8000) en vez de doble clic.\n2) O configure Firebase (ver README.md) y pruebe la app ya publicada en su sitio — es la forma recomendada para uso real con estudiantes.');
       return;
     }
     await registrarAsignatura(test.asignatura);
     await registrarProfesor(test.profesor);
     APP.ctx.draft = null;
+    APP.ctx.editId = null;
+    APP.ctx.editOriginal = null;
     APP.ctx.testId = test.id;
-    APP.ctx.nuevoCodigo = test.codigo;
+    APP.ctx.nuevoCodigo = editando ? null : test.codigo;
     APP.view='docenteReporte';
     render();
+    if(editando) alert('Cambios guardados correctamente. El código y el enlace de la prueba siguen siendo los mismos.');
   }
 
   return wrap;
@@ -1565,6 +1646,8 @@ function ViewDocenteReporte(){
         <span class="section-label" style="margin-bottom:0;">Informe de calificaciones — solo visible para el docente</span>
         <div style="display:flex; gap:8px;">
           <button class="btn btn-ghost btn-sm" id="btnVolverPanel">◂ Ver todas las pruebas</button>
+          <button class="btn btn-ghost btn-sm" id="btnEditarDesdeInforme">✏️ Editar prueba</button>
+          <button class="btn btn-ghost btn-sm" id="btnPreviaDesdeInforme">👁 Ver / 🖨 Imprimir prueba</button>
           <button class="btn btn-ghost btn-sm" id="btnEliminarPrueba" style="color:var(--danger); border-color:#E4B3A9;">🗑 Eliminar prueba</button>
         </div>
       </div>
@@ -1622,6 +1705,10 @@ function ViewDocenteReporte(){
     };
     const volverBtn = document.getElementById('btnVolverPanel');
     if(volverBtn) volverBtn.onclick = ()=>{ APP.ctx.nuevoCodigo=null; APP.view='docenteDashboard'; render(); };
+    const btnEditarInf = document.getElementById('btnEditarDesdeInforme');
+    if(btnEditarInf) btnEditarInf.onclick = ()=> iniciarEdicionPrueba(test);
+    const btnPreviaInf = document.getElementById('btnPreviaDesdeInforme');
+    if(btnPreviaInf) btnPreviaInf.onclick = ()=>{ APP.ctx.previaTestId = test.id; APP.view='docentePrevia'; render(); };
     const btnEliminar = document.getElementById('btnEliminarPrueba');
     if(btnEliminar) btnEliminar.onclick = async ()=>{
       const avisoIntentos = intentos.length ? `\n\nEsta prueba ya tiene ${intentos.length} intento(s) de estudiantes registrados. Al eliminarla, esas calificaciones también se borrarán y no se podrán recuperar.` : '';
@@ -1682,6 +1769,96 @@ function DetalleIntentoHTML(a, test){
     }).join('')}
     </tbody>
   </table>`;
+}
+
+/* ===================================================================== */
+/* VIEW: DOCENTE — VER / IMPRIMIR LA PRUEBA                              */
+/* ===================================================================== */
+function ViewDocentePrevia(){
+  if(!APP.docenteAuth){ APP.view='docenteLogin'; setTimeout(render); return document.createElement('div'); }
+  const wrap = document.createElement('div');
+  const shell = document.createElement('div');
+  shell.className='shell wide';
+  shell.innerHTML = `<div id="previaRoot"><p class="muted">Cargando prueba…</p></div>`;
+  wrap.appendChild(shell);
+
+  setTimeout(async ()=>{
+    const root = document.getElementById('previaRoot');
+    const test = await stGet('test:'+APP.ctx.previaTestId);
+    if(!test){ root.innerHTML = `<div class="notice danger">Prueba no encontrada.</div>`; return; }
+    if(APP.docenteAuth.uid && test.profesorUid && test.profesorUid !== APP.docenteAuth.uid){
+      root.innerHTML = `<div class="notice danger">Esta prueba pertenece a otra cuenta de docente.</div>`;
+      return;
+    }
+    normalizarTiempoTest(test);
+    const letras = 'ABCDEFGH';
+
+    function tiempoTxt(){
+      if(test.tipoTiempo==='total' && test.duracionMinutos) return `Tiempo: ${test.duracionMinutos} minutos`;
+      if(test.tipoTiempo==='porPregunta' && test.minutosPorPregunta) return `Tiempo: ${test.minutosPorPregunta} min por pregunta`;
+      return '';
+    }
+
+    function pintar(mostrarClave){
+      const preguntasHTML = test.preguntas.map((p,i)=>{
+        let cuerpo = '';
+        if(p.tipo==='seleccion'){
+          cuerpo = p.opciones.map((o,oi)=>`<div class="op">${letras[oi]}) ${esc(o)}</div>`).join('');
+        } else if(p.tipo==='vf'){
+          cuerpo = `<div class="op">(&nbsp;&nbsp;) Verdadero &nbsp;&nbsp;&nbsp; (&nbsp;&nbsp;) Falso</div>`;
+        } else {
+          cuerpo = `<div class="resp-linea"></div><div class="resp-linea"></div>`;
+        }
+        const clave = mostrarClave ? `<div class="clave">Respuesta correcta: ${esc(p.respuesta)}</div>` : '';
+        return `<div class="preg"><b>${i+1}.</b> ${esc(p.texto)} <i>(${p.puntos} pts)</i>${cuerpo}${clave}</div>`;
+      }).join('');
+
+      root.innerHTML = `
+        <div class="no-print" style="margin-bottom:16px;">
+          <div class="flex-between">
+            <span class="section-label" style="margin-bottom:0;">Vista de la prueba — solo docente</span>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn btn-ghost btn-sm" id="btnVolverPrevia">◂ Volver</button>
+              <button class="btn btn-ghost btn-sm" id="btnEditarPrevia">✏️ Editar esta prueba</button>
+              <button class="btn btn-primary btn-sm" id="btnImprimirPrevia">🖨 Imprimir</button>
+            </div>
+          </div>
+          <label style="display:inline-flex; gap:8px; align-items:center; margin-top:12px; font-size:13.5px; cursor:pointer;">
+            <input type="checkbox" id="chkClave" ${mostrarClave?'checked':''}>
+            Mostrar respuestas correctas (versión del docente)
+          </label>
+          <p class="muted" style="margin-top:6px;">Para entregar a los estudiantes impresa, deje la casilla desmarcada. Al imprimir, elija "Guardar como PDF" si prefiere un archivo.</p>
+        </div>
+
+        <div class="hoja-examen">
+          <div class="enc">
+            <div class="u">${esc(ENCABEZADO.linea1)}</div>
+            <div>${esc(ENCABEZADO.linea2)}</div>
+            <div>${esc(ENCABEZADO.linea3)}</div>
+            <div>${esc(ENCABEZADO.linea4)}</div>
+            <div><b>Asignatura: ${esc(test.asignatura||'')}</b></div>
+            ${test.profesor ? `<div>Docente: ${esc(test.profesor)}</div>` : ''}
+            <div style="margin-top:6px; font-size:14px;"><b>${esc(test.titulo)}</b> · ${test.tipoPrueba==='parcial'?'Parcial Integrador':'Prueba Corta'} · ${esc(test.modulo)}</div>
+          </div>
+          <div class="datos">
+            <div>Nombre: <span class="linea"></span></div>
+            <div>Cédula: <span class="linea"></span></div>
+            <div>Fecha: <span class="linea" style="min-width:140px;"></span></div>
+            <div><b>Valor total: 100 puntos</b>${tiempoTxt()?` · ${esc(tiempoTxt())}`:''}</div>
+          </div>
+          ${test.instrucciones ? `<p style="font-size:12.5px; margin:8px 0;"><b>Instrucciones:</b> ${esc(test.instrucciones)}</p>` : ''}
+          <hr style="border:none; border-top:1px solid #000; margin:10px 0;">
+          ${preguntasHTML}
+        </div>
+      `;
+      document.getElementById('btnVolverPrevia').onclick = ()=>{ APP.view='docenteDashboard'; render(); };
+      document.getElementById('btnEditarPrevia').onclick = ()=> iniciarEdicionPrueba(test);
+      document.getElementById('btnImprimirPrevia').onclick = ()=> window.print();
+      document.getElementById('chkClave').onchange = e=> pintar(e.target.checked);
+    }
+    pintar(false);
+  });
+  return wrap;
 }
 
 /* ===================================================================== */
